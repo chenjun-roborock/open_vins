@@ -148,7 +148,7 @@ VioManager::VioManager(VioManagerOptions &params_) {
 void VioManager::feed_measurement_imu(const ov_core::ImuData &message) {
 
 	auto imu_message = message;
-	imu_message.am*= 10.0;
+	imu_message.am*= 9.8;
 
   // Push back to our propagator
   propagator->feed_imu(message);

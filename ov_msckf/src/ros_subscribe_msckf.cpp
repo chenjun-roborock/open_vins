@@ -58,9 +58,9 @@ cam_param_type    cam_ins, cam_ex {};
 cam_size_type     cam_size {};
 VioManagerOptions params {};
 
-ros::Publisher              tf_publisher{};
-Eigen::Matrix<double, 7, 1> cam_left_eigen{};
-Eigen::Matrix<double, 7, 1> cam_right_eigen{};
+ros::Publisher              tf_publisher {};
+Eigen::Matrix<double, 7, 1> cam_left_eigen {};
+Eigen::Matrix<double, 7, 1> cam_right_eigen {};
 
 bool left_init  = false;
 bool right_init = false;
@@ -293,8 +293,8 @@ void camera_right_info_callback(const sensor_msgs::CameraInfo::ConstPtr& msg, ro
 	cam_size.insert({1, std::make_pair(msg->width, msg->height)});
 	right_init = true;
 	ROS_INFO("right cam info call back!");
-	ROS_INFO_STREAM("right cam info callback!  ins is  " << cam_ins[1] << " size is " << cam_size[1].first << " "
-	                                                     << cam_size[0].second);
+	ROS_INFO_STREAM("right cam info callback! ins is " << cam_ins[1] << "\n size is " << cam_size[1].first << " "
+	                                                   << cam_size[0].second);
 
 	if (tf_init & right_init & left_init) {
 		ROS_ERROR("right call back, init success !");
@@ -319,8 +319,8 @@ void camera_left_info_callback(const sensor_msgs::CameraInfo::ConstPtr& msg, ros
 	cam_ins.insert({0, cam_calib});
 	cam_size.insert({0, std::make_pair(msg->width, msg->height)});
 	left_init = true;
-	ROS_INFO_STREAM("left cam info callback!  ins is " << cam_ins[0] << " size is " << cam_size[0].first << " "
-	                                                    << cam_size[0].second);
+	ROS_INFO_STREAM("left cam info callback! ins is " << cam_ins[0] << "\n size is " << cam_size[0].first << " "
+	                                                  << cam_size[0].second);
 
 	if (tf_init & right_init & left_init) {
 		ROS_ERROR("left call back, init success !");
@@ -347,6 +347,35 @@ void get_tf_transform() {
 	try {
 		auto Tic_left = tf_->lookupTransform("imu_Link", "camera_link", ros::Time(5.0));
 
+//		tf::Transform  Tic {};
+//		tf::Quaternion Ric {};
+//		Tic.setOrigin(tf::Vector3 {Tic_left.transform.translation.x, Tic_left.transform.translation.y,
+//		                           Tic_left.transform.translation.z});
+//		Ric.setX(Tic_left.transform.rotation.x);
+//		Ric.setY(Tic_left.transform.rotation.y);
+//		Ric.setZ(Tic_left.transform.rotation.z);
+//		Ric.setW(Tic_left.transform.rotation.w);
+//		Tic.setRotation(Ric);
+//
+//		auto Rci = Tic.inverse();
+//		Tic_left.transform.translation.x = Rci.getOrigin().x();
+//		Tic_left.transform.translation.y = Rci.getOrigin().y();
+//		Tic_left.transform.translation.z = Rci.getOrigin().z();
+//
+//		auto            matrix = Tic.getBasis().inverse();
+//		Eigen::Matrix3d Mtic;
+//		Mtic << matrix[0][0], matrix[0][1], matrix[0][2], matrix[1][0], matrix[1][1],
+//				matrix[1][2], matrix[2][0], matrix[2][1], matrix[2][2];
+//
+//		auto jpl = rot_2_quat(Mtic);
+//
+//		Tic_left.transform.rotation.x = jpl(0, 0);
+//		Tic_left.transform.rotation.y = jpl(1, 0);
+//		Tic_left.transform.rotation.z = jpl(2, 0);
+//		Tic_left.transform.rotation.w = jpl(3, 0);
+
+		ROS_INFO_STREAM("IMU to cam transform is " << Tic_left.transform);
+
 		cam_left_eigen.block(0, 0, 4, 1) << Tic_left.transform.rotation.x, Tic_left.transform.rotation.y, Tic_left
 				.transform.rotation.z, Tic_left.transform.rotation.w;
 		cam_left_eigen.block(4, 0, 3, 1) << Tic_left.transform.translation.x, Tic_left.transform.translation.y, Tic_left
@@ -363,15 +392,14 @@ void get_tf_transform() {
 		rico.setW(Tic_left.transform.rotation.w);
 		Ric0.setRotation(rico);
 
-		Ric0.setOrigin(tf::Vector3 {Tic_left.transform.translation.x,
-		                            Tic_left.transform.translation.y,
+		Ric0.setOrigin(tf::Vector3 {Tic_left.transform.translation.x, Tic_left.transform.translation.y,
 		                            Tic_left.transform.translation.z});
 
 		//Ric1 = Ric0*Rc0c1
 		tf::Transform  Rc0c1 {};
 		tf::Quaternion rc0c1(0., 0., 0., 1.f);
-		Rc0c1.setOrigin(tf::Vector3 {0.12, 0., 0.});
-		rc0c1.normalize();
+		Rc0c1.setOrigin(tf::Vector3 {0.12f, 0., 0.});
+//		rc0c1.normalize();
 		Rc0c1.setRotation(rc0c1);
 
 		auto Ric1 = Ric0 * Rc0c1;
@@ -379,7 +407,13 @@ void get_tf_transform() {
 //		cam_right_eigen.block(4, 0, 3, 1) << Tic_left.transform.translation.x + 0.12,
 //				Tic_left.transform.translation.y, Tic_left.transform.translation.z;
 
+
+		ROS_INFO_STREAM("Before right is " << cam_right_eigen);
+
 		cam_right_eigen.block(4, 0, 3, 1) << Ric1.getOrigin().x(), Ric1.getOrigin().y(), Ric1.getOrigin().z();
+
+		ROS_INFO_STREAM("After right is " << cam_right_eigen);
+		ROS_INFO_STREAM("After left is " << cam_left_eigen);
 
 		cam_ex.insert({0, cam_left_eigen});
 		cam_ex.insert({1, cam_right_eigen});
