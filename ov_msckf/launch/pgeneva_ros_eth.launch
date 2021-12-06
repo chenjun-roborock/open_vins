@@ -4,8 +4,8 @@
     <arg name="max_cameras" default="2" />
     <arg name="use_stereo"  default="true" />
     <arg name="bag_start"   default="0" /> <!-- v1-2: 0, mh1: 40, mh2: 35, mh3: 17.5, mh4-5: 15 -->
-    <arg name="dataset"     default="V1_02_medium" /> <!-- V1_01_easy, V1_02_medium, V2_02_medium -->
-    <arg name="bag"         default="/home/patrick/datasets/eth/$(arg dataset).bag" />
+    <arg name="dataset"     default="2021-12-03-20-49-36" /> <!-- V1_01_easy, V1_02_medium, V2_02_medium -->
+    <arg name="bag"         default="/home/cj/log/euroc/$(arg dataset).bag" />
     <arg name="bag_gt"      default="$(find ov_data)/euroc_mav/$(arg dataset).csv" />
 
     <!-- imu starting thresholds -->
@@ -24,9 +24,9 @@
     <node name="run_subscribe_msckf" pkg="ov_msckf" type="run_subscribe_msckf" output="screen" clear_params="true" required="true">
 
         <!-- bag topics -->
-        <param name="topic_imu"      type="string" value="/imu0" />
-        <param name="topic_camera0"  type="string" value="/cam0/image_raw" />
-        <param name="topic_camera1"  type="string" value="/cam1/image_raw" />
+        <param name="topic_imu"      type="string" value="/imu" />
+        <param name="topic_camera0"  type="string" value="/camera/stereo/left/image_color" />
+        <param name="topic_camera1"  type="string" value="/camera/stereo/right/image_color" />
 
         <!-- world/filter parameters -->
         <param name="use_fej"                type="bool"   value="true" />
@@ -128,10 +128,12 @@
     <node pkg="rosbag" type="play" name="rosbag" args="-d 1 -s $(arg bag_start) $(arg bag)" required="true"/>
 
     <!-- path viz of aligned gt -->
-    <node name="live_align_trajectory" pkg="ov_eval" type="live_align_trajectory" output="log" clear_params="true">
+    <!--node name="live_align_trajectory" pkg="ov_eval" type="live_align_trajectory" output="log" clear_params="true">
         <param name="alignment_type" type="str" value="posyaw" />
         <param name="path_gt"        type="str" value="$(arg bag_gt)" />
-    </node>
+    </node/-->
+
+    <node pkg="rviz" type="rviz" name="rviz" required="false"/>
 
     <!-- record the trajectory if enabled -->
     <group if="$(arg dosave)">

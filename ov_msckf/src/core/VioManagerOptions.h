@@ -157,6 +157,12 @@ struct VioManagerOptions {
   /// Map between camid and the dimensions of incoming images (width/cols, height/rows). This is normally only used during simulation.
   std::map<size_t, std::pair<int, int>> camera_wh;
 
+  void set_cam_param(std::map<size_t, Eigen::VectorXd> cam_ex,std::map<size_t, Eigen::VectorXd> cam_int,std::map<size_t, std::pair<int, int>> cam_wh){
+    camera_intrinsics = cam_int;
+    camera_extrinsics = cam_ex;
+    camera_wh         = cam_wh;
+  }
+
   /**
    * @brief This function will print out all simulated parameters loaded.
    * This allows for visual checking that everything was loaded properly from ROS/CMD parsers.
