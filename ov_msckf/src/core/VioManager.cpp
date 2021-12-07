@@ -145,10 +145,10 @@ VioManager::VioManager(VioManagerOptions &params_) {
   active_tracks_initializer = std::make_shared<FeatureInitializer>(params.featinit_options);
 }
 
-void VioManager::feed_measurement_imu(const ov_core::ImuData &message) {
+void VioManager::feed_measurement_imu(const ov_core::ImuData &imu_message) {
 
-	auto imu_message = message;
-	imu_message.am*= 9.8;
+	auto message = imu_message;
+	message.am*= 9.8;
 
   // Push back to our propagator
   propagator->feed_imu(message);

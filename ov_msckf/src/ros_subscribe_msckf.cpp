@@ -84,6 +84,8 @@ void get_tf_transform();
 
 void publish_pose(ros::Publisher& pub);
 
+void inverse();
+
 // Main function
 int main(int argc, char** argv) {
 
@@ -298,6 +300,7 @@ void camera_right_info_callback(const sensor_msgs::CameraInfo::ConstPtr& msg, ro
 
 	if (tf_init & right_init & left_init) {
 		ROS_ERROR("right call back, init success !");
+		inverse();
 		params.set_cam_param(cam_ex, cam_ins, cam_size);
 		sys = std::make_shared<VioManager>(params);
 		viz = std::make_shared<RosVisualizer>(nh, sys);
@@ -324,7 +327,8 @@ void camera_left_info_callback(const sensor_msgs::CameraInfo::ConstPtr& msg, ros
 
 	if (tf_init & right_init & left_init) {
 		ROS_ERROR("left call back, init success !");
-		params.set_cam_param(cam_ins, cam_ex, cam_size);
+		inverse();
+		params.set_cam_param(cam_ex, cam_ins, cam_size);
 		sys = std::make_shared<VioManager>(params);
 		viz = std::make_shared<RosVisualizer>(nh, sys);
 		publish_pose(tf_publisher);
@@ -346,33 +350,6 @@ void tf_static_callback(tf2_msgs::TFMessage const& tf_msg) {
 void get_tf_transform() {
 	try {
 		auto Tic_left = tf_->lookupTransform("imu_Link", "camera_link", ros::Time(5.0));
-
-//		tf::Transform  Tic {};
-//		tf::Quaternion Ric {};
-//		Tic.setOrigin(tf::Vector3 {Tic_left.transform.translation.x, Tic_left.transform.translation.y,
-//		                           Tic_left.transform.translation.z});
-//		Ric.setX(Tic_left.transform.rotation.x);
-//		Ric.setY(Tic_left.transform.rotation.y);
-//		Ric.setZ(Tic_left.transform.rotation.z);
-//		Ric.setW(Tic_left.transform.rotation.w);
-//		Tic.setRotation(Ric);
-//
-//		auto Rci = Tic.inverse();
-//		Tic_left.transform.translation.x = Rci.getOrigin().x();
-//		Tic_left.transform.translation.y = Rci.getOrigin().y();
-//		Tic_left.transform.translation.z = Rci.getOrigin().z();
-//
-//		auto            matrix = Tic.getBasis().inverse();
-//		Eigen::Matrix3d Mtic;
-//		Mtic << matrix[0][0], matrix[0][1], matrix[0][2], matrix[1][0], matrix[1][1],
-//				matrix[1][2], matrix[2][0], matrix[2][1], matrix[2][2];
-//
-//		auto jpl = rot_2_quat(Mtic);
-//
-//		Tic_left.transform.rotation.x = jpl(0, 0);
-//		Tic_left.transform.rotation.y = jpl(1, 0);
-//		Tic_left.transform.rotation.z = jpl(2, 0);
-//		Tic_left.transform.rotation.w = jpl(3, 0);
 
 		ROS_INFO_STREAM("IMU to cam transform is " << Tic_left.transform);
 
@@ -399,21 +376,11 @@ void get_tf_transform() {
 		tf::Transform  Rc0c1 {};
 		tf::Quaternion rc0c1(0., 0., 0., 1.f);
 		Rc0c1.setOrigin(tf::Vector3 {0.12f, 0., 0.});
-//		rc0c1.normalize();
 		Rc0c1.setRotation(rc0c1);
 
 		auto Ric1 = Ric0 * Rc0c1;
 
-//		cam_right_eigen.block(4, 0, 3, 1) << Tic_left.transform.translation.x + 0.12,
-//				Tic_left.transform.translation.y, Tic_left.transform.translation.z;
-
-
-		ROS_INFO_STREAM("Before right is " << cam_right_eigen);
-
 		cam_right_eigen.block(4, 0, 3, 1) << Ric1.getOrigin().x(), Ric1.getOrigin().y(), Ric1.getOrigin().z();
-
-		ROS_INFO_STREAM("After right is " << cam_right_eigen);
-		ROS_INFO_STREAM("After left is " << cam_left_eigen);
 
 		cam_ex.insert({0, cam_left_eigen});
 		cam_ex.insert({1, cam_right_eigen});
@@ -448,4 +415,59 @@ void publish_pose(ros::Publisher& pub) {
 	pose.poses.push_back(cam_right);
 	pose.header.frame_id = "global";
 	pub.publish(pose);
+}
+
+void inverse() {
+	auto left  = cam_ex[0];
+	auto right = cam_ex[1];
+
+	tf::Transform tf_left {};
+	tf::Transform tf_right {};
+
+	tf_left.setOrigin(tf::Vector3 {left(4), left(5), left(6)});
+	tf_right.setOrigin(tf::Vector3 {right(4), right(5), right(6)});
+
+	tf::Quaternion q_l {};
+	tf::Quaternion q_r {};
+
+	q_l.setX(left(0));
+	q_l.setY(left(1));
+	q_l.setZ(left(2));
+	q_l.setW(left(3));
+
+	q_r.setX(right(0));
+	q_r.setY(right(1));
+	q_r.setZ(right(2));
+	q_r.setW(right(3));
+
+	tf_left.setRotation(q_l);
+	tf_right.setRotation(q_r);
+
+	auto l_matrix = tf_left.getBasis();
+
+	Eigen::Matrix3d Mtic;
+	Eigen::Vector3d tic;
+	Mtic << l_matrix[0][0], l_matrix[0][1], l_matrix[0][2], l_matrix[1][0], l_matrix[1][1],
+			l_matrix[1][2], l_matrix[2][0], l_matrix[2][1], l_matrix[2][2];
+	tic << left(4), left(5), left(6);
+
+	Eigen::Matrix<double, 7, 1> cam_eigen;
+	cam_eigen.block(0, 0, 4, 1) = rot_2_quat(Mtic.transpose());
+	cam_eigen.block(4, 0, 3, 1) = -Mtic.transpose() * tic;
+
+	cam_ex[0] << cam_eigen;
+
+	auto r_matrix = tf_right.getBasis();
+
+	Eigen::Matrix3d rMtic;
+	Eigen::Vector3d rtic;
+	rMtic << r_matrix[0][0], r_matrix[0][1], r_matrix[0][2], r_matrix[1][0], r_matrix[1][1],
+			r_matrix[1][2], r_matrix[2][0], r_matrix[2][1], r_matrix[2][2];
+	rtic << right(4), right(5), right(6);
+
+	Eigen::Matrix<double, 7, 1> cam_eigen_r;
+	cam_eigen_r.block(0, 0, 4, 1) = rot_2_quat(rMtic.transpose());
+	cam_eigen_r.block(4, 0, 3, 1) = -rMtic.transpose() * rtic;
+
+	cam_ex[1] << cam_eigen_r;
 }
